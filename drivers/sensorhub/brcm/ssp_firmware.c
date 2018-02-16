@@ -14,8 +14,12 @@
 */
 #include "ssp.h"
 
-#if defined (CONFIG_SENSORS_SSP_DREAM)
-#define SSP_FIRMWARE_REVISION_BCM	17070500
+#if defined(CONFIG_SENSORS_SSP_GREAT)
+#if ANDROID_VERSION < 80000
+#define SSP_FIRMWARE_REVISION_BCM	17101701  /*Android N*/
+#else
+#define SSP_FIRMWARE_REVISION_BCM	18020700  /*Android O*/
+#endif
 #else
 #define SSP_FIRMWARE_REVISION_BCM	00000000
 #endif

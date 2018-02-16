@@ -163,12 +163,12 @@ NOKPROBE_SYMBOL(skip_prefixes);
  * Returns non-zero if opcode is boostable.
  * RIP relative instructions are adjusted at copying time in 64 bits mode
  */
-int can_boost(kprobe_opcode_t *opcodes)
+int can_boost(kprobe_opcode_t *opcodes, void *addr)
 {
 	kprobe_opcode_t opcode;
 	kprobe_opcode_t *orig_opcodes = opcodes;
 
-	if (search_exception_tables((unsigned long)opcodes))
+	if (search_exception_tables((unsigned long)addr))
 		return 0;	/* Page fault may occur on this address. */
 
 retry:
@@ -196,6 +196,8 @@ retry:
 		return (opcode != 0x62 && opcode != 0x67);
 	case 0x70:
 		return 0; /* can't boost conditional jump */
+	case 0x90:
+		return opcode != 0x9a;	/* can't boost call far */
 	case 0xc0:
 		/* can't boost software-interruptions */
 		return (0xc1 < opcode && opcode < 0xcc) || opcode == 0xcf;
@@ -404,6 +406,8 @@ static int arch_copy_kprobe(struct kprobe *p)
 {
 	int ret;
 
+	set_memory_rw((unsigned long)p->ainsn.insn & PAGE_MASK, 1);
+
 	/* Copy an instruction with recovering if other optprobe modifies it.*/
 	ret = __copy_instruction(p->ainsn.insn, p->addr);
 	if (!ret)
@@ -413,10 +417,12 @@ static int arch_copy_kprobe(struct kprobe *p)
 	 * __copy_instruction can modify the displacement of the instruction,
 	 * but it doesn't affect boostable check.
 	 */
-	if (can_boost(p->ainsn.insn))
+	if (can_boost(p->ainsn.insn, p->addr))
 		p->ainsn.boostable = 0;
 	else
 		p->ainsn.boostable = -1;
+
+	set_memory_ro((unsigned long)p->ainsn.insn & PAGE_MASK, 1);
 
 	/* Check whether the instruction modifies Interrupt Flag or not */
 	p->ainsn.if_modifier = is_IF_modifier(p->ainsn.insn);
@@ -959,7 +965,19 @@ int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
 		 * normal page fault.
 		 */
 		regs->ip = (unsigned long)cur->addr;
+		/*
+		 * Trap flag (TF) has been set here because this fault
+		 * happened where the single stepping will be done.
+		 * So clear it by resetting the current kprobe:
+		 */
+		regs->flags &= ~X86_EFLAGS_TF;
+
+		/*
+		 * If the TF flag was set before the kprobe hit,
+		 * don't touch it:
+		 */
 		regs->flags |= kcb->kprobe_old_flags;
+
 		if (kcb->kprobe_status == KPROBE_REENTER)
 			restore_previous_kprobe(kcb);
 		else

@@ -433,7 +433,6 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 	}
 	ecryptfs_set_file_lower(
 		file, ecryptfs_inode_to_private(inode)->lower_file);
-
 	rc = read_or_initialize_metadata(ecryptfs_dentry);
 #ifdef CONFIG_SDP
 	if (rc) {
@@ -486,7 +485,7 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 		if (S_ISREG(ecryptfs_dentry->d_inode->i_mode)) {
 			ecryptfs_set_mapping_sensitive(inode, mount_crypt_stat->userid, TO_SENSITIVE);
 		}
-		
+
 		if (ecryptfs_is_sdp_locked(crypt_stat->engine_id)) {
 			ecryptfs_printk(KERN_INFO, "ecryptfs_open: persona is locked, rc=%d\n", rc);
 		} else {
@@ -543,7 +542,7 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 #endif
 				if ((ts.tv_sec > dlp_data.expiry_time.tv_sec) &&
 						dlp_isInterestedFile(mount_crypt_stat->userid, ecryptfs_dentry->d_name.name)==0) {
-					
+
 					if(in_egroup_p(AID_KNOX_DLP_MEDIA)) { //ignore media notifications
 					/* Command to delete expired file  */
 					cmd = sdp_fs_command_alloc(FSOP_DLP_FILE_REMOVE_MEDIA,
@@ -590,7 +589,7 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 			cmd = sdp_fs_command_alloc(FSOP_DLP_FILE_ACCESS_DENIED,
 							current->tgid, mount_crypt_stat->userid, mount_crypt_stat->partition_id,
 							inode->i_ino, GFP_KERNEL);
-							
+
 			rc = -EPERM;
 			goto out_put;
 		}
@@ -644,12 +643,7 @@ static int ecryptfs_dir_open(struct inode *inode, struct file *file)
 	/* Private value of ecryptfs_dentry allocated in
 	 * ecryptfs_lookup() */
 	struct ecryptfs_file_info *file_info;
-#if !defined(CONFIG_SDP)
 	struct file *lower_file;
-#else
-	int rc = 0;
-#endif
-
 #if defined(CONFIG_SDP)
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat;
 	struct ecryptfs_crypt_stat *crypt_stat = NULL;
@@ -673,7 +667,6 @@ static int ecryptfs_dir_open(struct inode *inode, struct file *file)
 				"Error attempting to allocate memory\n");
 		return -ENOMEM;
 	}
-#if !defined(CONFIG_SDP)
 	lower_file = dentry_open(ecryptfs_dentry_to_lower_path(ecryptfs_dentry),
 				 file->f_flags, current_cred());
 	if (IS_ERR(lower_file)) {
@@ -685,19 +678,6 @@ static int ecryptfs_dir_open(struct inode *inode, struct file *file)
 		return PTR_ERR(lower_file);
 	}
 	ecryptfs_set_file_lower(file, lower_file);
-#else
-	rc = ecryptfs_get_lower_file(ecryptfs_dentry, inode);
-	if (rc) {
-		printk(KERN_ERR "%s: Error attempting to initialize "
-			"the lower file for the dentry with name "
-			"[%pd]; rc = [%d]\n", __func__,
-			ecryptfs_dentry, rc);
-		kmem_cache_free(ecryptfs_file_info_cache, file_info);
-		return rc;
-	}
-	ecryptfs_set_file_lower(
-		file, ecryptfs_inode_to_private(inode)->lower_file);
-#endif
 	return 0;
 }
 
@@ -732,20 +712,7 @@ static int ecryptfs_release(struct inode *inode, struct file *file)
 
 static int ecryptfs_dir_release(struct inode *inode, struct file *file)
 {
-#ifdef CONFIG_SDP
-	struct ecryptfs_crypt_stat *crypt_stat;
-	crypt_stat = &ecryptfs_inode_to_private(inode)->crypt_stat;
-
-	mutex_lock(&crypt_stat->cs_mutex);
-#endif
-#if !defined(CONFIG_SDP)
 	fput(ecryptfs_file_to_lower(file));
-#else
-	ecryptfs_put_lower_file(inode);
-#endif
-#ifdef CONFIG_SDP
-	mutex_unlock(&crypt_stat->cs_mutex);
-#endif
 	kmem_cache_free(ecryptfs_file_info_cache,
 			ecryptfs_file_to_private(file));
 	return 0;

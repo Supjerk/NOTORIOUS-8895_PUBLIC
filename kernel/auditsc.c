@@ -316,13 +316,13 @@ static int audit_compare_uid(kuid_t uid,
 {
 	struct audit_names *n;
 	int rc;
- 
+
 	if (name) {
 		rc = audit_uid_comparator(uid, f->op, name->uid);
 		if (rc)
 			return rc;
 	}
- 
+
 	if (ctx) {
 		list_for_each_entry(n, &ctx->names_list, list) {
 			rc = audit_uid_comparator(uid, f->op, n->uid);
@@ -340,13 +340,13 @@ static int audit_compare_gid(kgid_t gid,
 {
 	struct audit_names *n;
 	int rc;
- 
+
 	if (name) {
 		rc = audit_gid_comparator(gid, f->op, name->gid);
 		if (rc)
 			return rc;
 	}
- 
+
 	if (ctx) {
 		list_for_each_entry(n, &ctx->names_list, list) {
 			rc = audit_gid_comparator(gid, f->op, n->gid);
@@ -2249,9 +2249,10 @@ int __audit_signal_info(int sig, struct task_struct *t)
 				audit_sig_uid = uid;
 			security_task_getsecid(tsk, &audit_sig_sid);
 		}
-		if (!audit_signals || audit_dummy_context())
-			return 0;
 	}
+
+	if (!audit_signals || audit_dummy_context())
+		return 0;
 
 	/* optimize the common case by putting first signal recipient directly
 	 * in audit_context */

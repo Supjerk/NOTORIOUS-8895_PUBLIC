@@ -90,8 +90,6 @@ config ARCH_TEGRA_132_SOC
 	bool "NVIDIA Tegra132 SoC"
 	depends on ARCH_TEGRA
 	select PINCTRL_TEGRA124
-	select USB_ULPI if USB_PHY
-	select USB_ULPI_VIEWPORT if USB_PHY
 	help
 	  Enable support for NVIDIA Tegra132 SoC, based on the Denver
 	  ARMv8 CPU.  The Tegra132 SoC is similar to the Tegra124 SoC,
@@ -168,6 +166,18 @@ config SOC_EXYNOS8895
 
 config SOC_EMULATOR8895
 	bool "Samsung EMULATOR8895"
+
+config MODEL_GREATLTE
+	bool "Samsung NOTE 8"
+	depends on SOC_EXYNOS8895
+
+config MODEL_DREAMLTE
+	bool "Samsung Galaxy S8"
+	depends on SOC_EXYNOS8895
+
+config MODEL_DREAM2LTE
+	bool "Samsung Galaxy S8 Plus"
+	depends on SOC_EXYNOS8895
 
 config ARCH_EXYNOS8
 	bool "ARMv8 based Samsung Exynos8"

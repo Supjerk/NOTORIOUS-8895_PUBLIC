@@ -1317,9 +1317,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
 			    slave_dev->name);
 	}
 
-	/* already enslaved */
-	if (slave_dev->flags & IFF_SLAVE) {
-		netdev_dbg(bond_dev, "Error: Device was already enslaved\n");
+	/* already in-use? */
+	if (netdev_is_rx_handler_busy(slave_dev)) {
+		netdev_err(bond_dev,
+			   "Error: Device is in use and cannot be enslaved\n");
 		return -EBUSY;
 	}
 
@@ -3165,7 +3166,7 @@ u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb)
 	hash ^= (hash >> 16);
 	hash ^= (hash >> 8);
 
-	return hash;
+	return hash >> 1;
 }
 
 /*-------------------------- Device entry points ----------------------------*/
@@ -3275,12 +3276,17 @@ static void bond_fold_stats(struct rtnl_link_stats64 *_res,
 	for (i = 0; i < sizeof(*_res) / sizeof(u64); i++) {
 		u64 nv = new[i];
 		u64 ov = old[i];
+		s64 delta = nv - ov;
 
 		/* detects if this particular field is 32bit only */
 		if (((nv | ov) >> 32) == 0)
-			res[i] += (u32)nv - (u32)ov;
-		else
-			res[i] += nv - ov;
+			delta = (s64)(s32)((u32)nv - (u32)ov);
+
+		/* filter anomalies, some drivers reset their stats
+		 * at down/up events.
+		 */
+		if (delta > 0)
+			res[i] += delta;
 	}
 }
 

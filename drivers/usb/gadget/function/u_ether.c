@@ -602,7 +602,7 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 				}
 
 				/* NCM requires no zlp if transfer is dwNtbInMaxSize */
-				if (dev->port_usb->is_fixed) { 
+				if (dev->port_usb->is_fixed) {
 					if(length == dev->port_usb->fixed_in_len) {
 						new_req->zero = 0;
 						dev->no_of_zlp--;
@@ -708,7 +708,7 @@ static int tx_task(struct eth_dev *dev, struct usb_request *req)
 
 	/* NCM requires no zlp if transfer is dwNtbInMaxSize */
 	if (dev->port_usb) {
-		if (dev->port_usb->is_fixed) { 
+		if (dev->port_usb->is_fixed) {
 			if(length == dev->port_usb->fixed_in_len) {
 				req->zero = 0;
 				dev->no_of_zlp--;
@@ -947,13 +947,13 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	req->zero =0;
 	if((length % in->maxpacket) == 0) {
 		req->zero = 1;
-		dev->no_of_zlp++;		
-	}	
+		dev->no_of_zlp++;
+	}
 
 	/* NCM requires no zlp if transfer is dwNtbInMaxSize */
 	if (dev->port_usb) {
-		if (dev->port_usb->is_fixed) { 
-			if(length == dev->port_usb->fixed_in_len) { 
+		if (dev->port_usb->is_fixed) {
+			if(length == dev->port_usb->fixed_in_len) {
 				req->zero = 0;
 				dev->no_of_zlp--;
 			}
@@ -964,25 +964,10 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	 * though any robust network rx path ignores extra padding.
 	 * and some hardware doesn't like to write zlps.
 	 */
-	if (req->zero && !dev->zlp && (length % in->maxpacket) == 0) {
+	if (req->zero && !dev->zlp && (length % in->maxpacket) == 0)
 		length++;
-	}
 
 	req->length = length;
-
-	/* throttle highspeed IRQ rate back slightly */
-	if (gadget_is_dualspeed(dev->gadget) &&
-			 (dev->gadget->speed == USB_SPEED_HIGH)) {
-		dev->tx_qlen++;
-		if (dev->tx_qlen == (dev->qmult/2)) {
-			req->no_interrupt = 0;
-			dev->tx_qlen = 0;
-		} else {
-			req->no_interrupt = 1;
-		}
-	} else {
-		req->no_interrupt = 0;
-	}
 
 	retval = usb_ep_queue(in, req, GFP_ATOMIC);
 #endif
@@ -1198,7 +1183,7 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g,
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	memcpy(dev->host_mac, ethaddr, ETH_ALEN);
 	printk(KERN_DEBUG "usb: set unique host mac\n");
-	
+
 #else
 	if (get_host_ether_addr(host_ethaddr, dev->host_mac))
 		dev_warn(&g->dev, "using random %s ethernet address\n", "host");
@@ -1523,14 +1508,14 @@ fail0:
 	return dev->net;
 }
 
-EXPORT_SYMBOL_GPL(gether_alloc_requset);
+EXPORT_SYMBOL_GPL(gether_alloc_request);
 /* gether_alloc_request - get usb request queue */
 int gether_alloc_request(struct gether *link)
 {
 	struct eth_dev		*dev = link->ioport;
 	int			result = 0;
 
-	/* update multi packet number */	
+	/* update multi packet number */
 	if (!link->is_fixed)
 	{
 		dev->ul_max_pkts_per_xfer = link->ul_max_pkts_per_xfer;
@@ -1543,34 +1528,34 @@ int gether_alloc_request(struct gether *link)
 	return result;
 }
 
-EXPORT_SYMBOL_GPL(gether_free_requset);
+EXPORT_SYMBOL_GPL(gether_free_request);
 void gether_free_request(struct gether *link)
 {
 	struct eth_dev		*dev = link->ioport;
 	struct usb_request	*req;
-	
+
 	printk("usb: %s : \n", __func__);
-	
+	spin_lock(&dev->req_lock);
 	while (!list_empty(&dev->tx_reqs)) {
 		req = container_of(dev->tx_reqs.next,
 					struct usb_request, list);
 		list_del(&req->list);
-
+		spin_unlock(&dev->req_lock);
 		if (link->multi_pkt_xfer)
 			kfree(req->buf);
 		usb_ep_free_request(link->in_ep, req);
+		spin_lock(&dev->req_lock);
 	}
-
-	link->in_ep->desc = NULL;
-	usb_ep_disable(link->out_ep);
 
 	while (!list_empty(&dev->rx_reqs)) {
 		req = container_of(dev->rx_reqs.next,
 					struct usb_request, list);
 		list_del(&req->list);
-
+		spin_unlock(&dev->req_lock);
 		usb_ep_free_request(link->out_ep, req);
+		spin_lock(&dev->req_lock);
 	}
+	spin_unlock(&dev->req_lock);
 }
 
 EXPORT_SYMBOL_GPL(gether_connect);
@@ -1609,9 +1594,9 @@ void gether_disconnect(struct gether *link)
 	 */
 	usb_ep_disable(link->in_ep);
 	link->in_ep->desc = NULL;
-	
+
 	usb_ep_disable(link->out_ep);
-	
+
 #if 0
 	spin_lock(&dev->req_lock);
 	while (!list_empty(&dev->tx_reqs)) {

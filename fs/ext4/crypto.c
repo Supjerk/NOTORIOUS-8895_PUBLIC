@@ -427,11 +427,11 @@ int ext4_encrypted_zeroout(struct inode *inode, ext4_lblk_t lblk,
 #ifdef CONFIG_FMP_EXT4CRYPT_FS
 		if (!inode->i_mapping->private_enc_mode) {
 #endif
-			err = ext4_page_crypto(inode, EXT4_ENCRYPT, lblk,
+		err = ext4_page_crypto(inode, EXT4_ENCRYPT, lblk,
 				       ZERO_PAGE(0), ciphertext_page,
 				       GFP_NOFS);
-			if (err)
-				goto errout;
+		if (err)
+			goto errout;
 #ifdef CONFIG_FMP_EXT4CRYPT_FS
 		} else {
 			memset(page_address(ciphertext_page), 0, PAGE_SIZE);
@@ -518,11 +518,6 @@ static int ext4_d_revalidate(struct dentry *dentry, unsigned int flags)
 		return 0;
 	}
 	ci = EXT4_I(d_inode(dir))->i_crypt_info;
-	if (ci && ci->ci_keyring_key &&
-	    (ci->ci_keyring_key->flags & ((1 << KEY_FLAG_INVALIDATED) |
-					  (1 << KEY_FLAG_REVOKED) |
-					  (1 << KEY_FLAG_DEAD))))
-		ci = NULL;
 
 	/* this should eventually be an flag in d_flags */
 	cached_with_key = dentry->d_fsdata != NULL;
